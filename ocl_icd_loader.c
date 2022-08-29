@@ -264,8 +264,7 @@ static inline unsigned int _open_driver(unsigned int num_icds,
   RETURN(num_icds);
 }
 
-static inline unsigned int _open_drivers(DIR *dir, const char* dir_path) {
-  unsigned int num_icds = 0;
+static inline unsigned int _open_drivers(unsigned int num_icds, DIR *dir, const char* dir_path) {
   struct dirent *ent;
   while( (ent=readdir(dir)) != NULL ){
     if(! _string_end_with_icd(ent->d_name)) {
@@ -701,6 +700,11 @@ static void __initClIcd( void ) {
   cl_uint num_icds = 0;
   int is_dir = 0;
   DIR *dir = NULL;
+  char pyclesperanto_path[4096];
+  strcpy(pyclesperanto_path, getenv("PYCLESPERANTO_HOME"));
+  if (!pyclesperanto_path[0]==0) {
+    strcat(pyclesperanto_path, "/.libs");
+  }
   const char* dir_path=getenv("OCL_ICD_VENDORS");
   const char* vendor_path=getenv("OPENCL_VENDOR_PATH");
   if (! vendor_path || vendor_path[0]==0) {
@@ -740,7 +744,7 @@ static void __initClIcd( void ) {
       goto abort;
     }
 
-    num_icds = _find_num_icds(dir);
+    num_icds = _find_num_icds(dir) + 100;
     if(num_icds == 0) {
       goto abort;
     }
@@ -764,7 +768,15 @@ static void __initClIcd( void ) {
       num_icds = _load_icd(0, dir_path);
     }
   } else {
-    num_icds = _open_drivers(dir, dir_path);
+    num_icds = _open_drivers(0, dir, dir_path);
+  }
+  if (!pyclesperanto_path[0]==0) {
+    DIR * dir2;
+    dir2 = opendir(pyclesperanto_path);
+    if (dir2 != NULL) {
+      num_icds = _open_drivers(num_icds, dir2, pyclesperanto_path);
+      closedir(dir2);
+    }
   }
   if(num_icds == 0) {
     goto abort;
